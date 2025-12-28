@@ -1,3 +1,4 @@
+// Use the auth code flow with PKCE (for security)
 export async function redirectToAuthCodeFlow(clientId: string) {
     const verifier = generateCodeVerifier(128);
     const challenge = await generateCodeChallenge(verifier);
@@ -8,7 +9,7 @@ export async function redirectToAuthCodeFlow(clientId: string) {
     params.append("client_id", clientId);
     params.append("response_type", "code");
     params.append("redirect_uri", "http://127.0.0.1:8888/callback");
-    params.append("scope", "user-read-private user-read-email user-read-playback-state");
+    params.append("scope", "user-read-private user-read-email user-read-playback-state user-modify-playback-state");
     params.append("code_challenge_method", "S256");
     params.append("code_challenge", challenge);
 
@@ -31,18 +32,50 @@ export async function getAccessToken(clientId: string, code: string) {
         body: params
     });
 
-    const { access_token } = await result.json();
-    return access_token;
+    // Need to keep refresh token
+    const responseJson = await result.json();
+    const accessToken = responseJson.access_token;
+    const refreshToken = responseJson.refresh_token;
+    //const expiresIn = responseJson.expires_in;
+    
+    localStorage.setItem("refresh_token", refreshToken);
+
+    return accessToken;
+}
+
+export async function refreshAccessToken(clientId: string) {
+    const refreshToken = localStorage.getItem("refresh_token");
+    
+    if (!refreshToken) {
+        console.error("No refresh token found. User must log in again");
+        return;
+    }
+
+    const params = new URLSearchParams();
+    params.append("client_id", clientId);
+    params.append("grant_type", "refresh_token");
+    params.append("refresh_token", refreshToken);
+
+    const result = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+    });
+
+    const response = await result.json();
+    const newAccessToken = response.access_token;
+
+    if (response.refresh_token) {
+        localStorage.setItem("refresh_token", response.refresh_token);
+    }
+
+    return newAccessToken;
 }
 
 function generateCodeVerifier(length: number) {
-    let text = '';
     let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-    for (let i = 0; i < length; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    const values = crypto.getRandomValues(new Uint8Array(length));
+    return values.reduce((acc, x) => acc + possible[x % possible.length], "");
 }
 
 async function generateCodeChallenge(codeVerifier: string) {
