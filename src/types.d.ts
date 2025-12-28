@@ -16,6 +16,19 @@ interface UserProfile {
     uri: string;
 }
 
+interface UserPlayback {
+    device: object;
+    repeat_state: string;
+    shuffle_state: boolean;
+    context: object;
+    timestamp: integer;
+    progress_ms: integer;
+    is_playing: boolean;
+    item: oneOf;
+    currently_playing_type: string;
+    actions: object;
+}
+
 interface Image {
     url: string;
     height: number;
