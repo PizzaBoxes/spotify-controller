@@ -65,6 +65,7 @@ export async function refreshAccessToken(clientId: string) {
     const response = await result.json();
     const newAccessToken = response.access_token;
 
+    localStorage.setItem("access_token", response.access_token);
     if (response.refresh_token) {
         localStorage.setItem("refresh_token", response.refresh_token);
     }
